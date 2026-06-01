@@ -146,6 +146,8 @@
     *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}
     body{background:#fff;padding:0;}
     .sheet{box-shadow:none;border:none;max-width:100%;padding:0 6mm;}
+    .chk .box{background:#fff !important;border:2px solid #fff !important;}
+    .chk .cl{color:#fff !important;}
     /* 단계·박스가 페이지 경계에서 잘리지 않게 */
     .step{break-inside:avoid;page-break-inside:avoid;}
     .step-head{break-inside:avoid;page-break-inside:avoid;}
@@ -168,9 +170,81 @@
   }
   .final{transition:transform .25s, box-shadow .25s;}
   .final.allchecked{transform:scale(1.015);box-shadow:0 10px 30px rgba(31,138,91,.45);outline:3px solid #27c07a;outline-offset:3px;}
+
+  /* ===== 편집 툴바 ===== */
+  #toolbar{position:sticky;top:0;z-index:100;background:#1a2332;color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.25);}
+  .tb-inner{max-width:1000px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:9px 18px;flex-wrap:wrap;gap:8px;}
+  .tb-logo{font-weight:700;font-size:14px;}
+  .tb-status{font-size:12px;color:#7fd4a8;margin-left:10px;}
+  .tb-btns{display:flex;gap:7px;align-items:center;flex-wrap:wrap;}
+  .tb-btn{background:#2d4a6b;color:#fff;border:none;padding:7px 13px;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;}
+  .tb-btn:hover{background:#3a5d82;}
+  .tb-edit{background:var(--blue);}
+  .tb-edit:hover{background:#1a7fd0;}
+  .tb-save{background:var(--green);}
+  .tb-save:hover{background:#16a065;}
+  .tb-cancel{background:#6b7280;}
+  .tb-reset{background:#7a3b3b;}
+  .tb-reset:hover{background:#9b4a4a;}
+  .tb-divider{width:1px;height:20px;background:rgba(255,255,255,.25);margin:0 3px;}
+  #editHint{display:none;background:var(--amber-soft);border-bottom:2px solid var(--amber);color:#7a5510;padding:9px 18px;font-size:12.5px;text-align:center;position:sticky;top:43px;z-index:99;}
+  body.editing #editHint{display:block;}
+  /* 편집 가능 영역 하이라이트 */
+  body.editing .sheet [contenteditable="true"]:hover{outline:2px dashed var(--blue);outline-offset:2px;border-radius:3px;}
+  body.editing .sheet [contenteditable="true"]:focus{outline:2px solid var(--blue);outline-offset:2px;background:#fffef5;border-radius:3px;}
+  /* 모달 */
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:20px;}
+  .modal-bg.show{display:flex;}
+  .modal{background:#fff;border-radius:12px;padding:26px 28px;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+  .modal h3{font-size:18px;margin-bottom:14px;color:var(--ink);}
+  .modal ol{padding-left:20px;}
+  .modal li{font-size:13px;line-height:1.7;margin:9px 0;color:var(--ink);}
+  .modal-note{margin-top:14px;font-size:12px;color:var(--grey);background:#f6f3ec;padding:10px 13px;border-radius:6px;line-height:1.6;}
+  .modal-close{margin-top:16px;background:var(--steel);color:#fff;border:none;padding:9px 20px;border-radius:7px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px;}
+  /* 인쇄 시 편집 UI 전부 숨김 */
+  @media print{
+    #toolbar,#editHint,.modal-bg{display:none !important;}
+  }
 </style>
 </head>
 <body>
+
+<!-- ===== 편집 툴바 (인쇄 시 자동 숨김) ===== -->
+<div id="toolbar">
+  <div class="tb-inner">
+    <div class="tb-left">
+      <span class="tb-logo">📋 하도급 체크리스트 관리자</span>
+      <span id="saveStatus" class="tb-status"></span>
+    </div>
+    <div class="tb-btns">
+      <button id="btnEdit" class="tb-btn tb-edit">✏️ 편집 시작</button>
+      <button id="btnSave" class="tb-btn tb-save" style="display:none;">💾 저장</button>
+      <button id="btnCancel" class="tb-btn tb-cancel" style="display:none;">취소</button>
+      <span class="tb-divider"></span>
+      <button id="btnExport" class="tb-btn">⬇️ HTML 내보내기</button>
+      <button id="btnReset" class="tb-btn tb-reset">↺ 원본 복원</button>
+      <button id="btnHelp" class="tb-btn">❔ 사용법</button>
+    </div>
+  </div>
+</div>
+
+<div id="editHint">✏️ <b>편집 모드</b> — 글자를 직접 클릭해서 수정하세요. 다 되면 <b>저장</b>을 누르고, 모두에게 반영하려면 <b>HTML 내보내기</b> 후 같은 주소에 다시 올리세요.</div>
+
+<!-- 사용법 모달 -->
+<div id="helpModal" class="modal-bg">
+  <div class="modal">
+    <h3>📖 이렇게 쓰세요</h3>
+    <ol>
+      <li><b>편집 시작</b>을 누르면 문서의 글자를 직접 고칠 수 있어요. (표 안 글자, 예시, 제목 모두 가능)</li>
+      <li>다 고쳤으면 <b>저장</b>을 누르세요. 이 브라우저에 자동 보관돼서, 다음에 열 때도 유지됩니다.</li>
+      <li><b>모든 임직원에게 반영</b>하려면 → <b>HTML 내보내기</b>로 수정본 파일을 받아, 기존에 올린 곳(사내 포털·드라이브 등)에 <b>같은 이름으로 덮어쓰기</b> 하세요. 주소는 그대로 유지됩니다.</li>
+      <li>잘못 고쳤으면 <b>원본 복원</b>으로 처음 상태로 되돌릴 수 있어요.</li>
+    </ol>
+    <p class="modal-note">※ '저장'은 내 브라우저에만 보관됩니다. 다른 사람 화면까지 바꾸려면 반드시 <b>내보내기 → 재업로드</b>가 필요합니다.</p>
+    <button class="modal-close" onclick="document.getElementById('helpModal').classList.remove('show')">닫기</button>
+  </div>
+</div>
+
 <div class="sheet">
 
   <div class="head">
@@ -214,12 +288,12 @@
       <div class="ex">
         <div class="exh">📌 쉬운 예시</div>
         <ul>
-          <li class="ok">매출 200억원 중소기업에 양극재 부품 제작을 맡김 → <span class="res okT">보호 대상 (계속)</span></li>
-          <li class="ok">매출 1,200억원 중견기업에 위탁 (3천억 미만) → <span class="res okT">예외적으로 보호 대상 (계속)</span></li>
-          <li class="ok">매출 2,900억원 중견기업에 내화물 가공 위탁 → <span class="res okT">3천억 미만이라 보호 대상 (계속)</span></li>
-          <li class="no">매출 5,000억원 중견기업에 위탁 → <span class="res noT">3천억 이상, 하도급거래 아님 (끝)</span></li>
-          <li class="no">다른 대기업 계열사에 위탁 → <span class="res noT">대기업이라 하도급거래 아님 (끝)</span></li>
-          <li class="no">개인(소비자)에게 일을 맡김 → <span class="res noT">사업자가 아니라 하도급거래 아님 (끝)</span></li>
+          <li class="ok">매출 200억원 중소기업에 양극재 부품 제작을 맡김 → <span class="res okT">보호 대상</span></li>
+          <li class="ok">매출 1,200억원 중견기업에 위탁 (3천억 미만) → <span class="res okT">예외적으로 보호 대상</span></li>
+          <li class="ok">매출 2,900억원 중견기업에 내화물 가공 위탁 → <span class="res okT">3천억 미만이라 보호 대상</span></li>
+          <li class="no">매출 5,000억원 중견기업에 위탁 → <span class="res noT">3천억 이상, 하도급거래 아님</span></li>
+          <li class="no">다른 대기업 계열사에 위탁 → <span class="res noT">대기업이라 하도급거래 아님</span></li>
+          <li class="no">개인(소비자)에게 일을 맡김 → <span class="res noT">사업자가 아니라 하도급거래 아님</span></li>
         </ul>
       </div>
       <div class="note"><b>확인 TIP:</b> 상대 회사가 중소기업인지 모르겠다면 → <b>중소기업현황정보시스템(sminfo.mss.go.kr)</b>에서 사업자번호로 조회할 수 있습니다. 규모가 애매한 중견기업은 직전연도 매출액(3,000억원 기준)을 꼭 확인하세요.</div>
@@ -359,10 +433,10 @@
       <div class="ex">
         <div class="exh">📌 쉬운 예시</div>
         <ul>
-          <li class="ok">우리가 판매하는 양극재에 들어가는 전구체·소재 제작 위탁 → <span class="res okT">본업 관련 (계속)</span></li>
-          <li class="ok">고객사에 납품할 내화물 제품의 가공·임가공 위탁 → <span class="res okT">본업 관련 (계속)</span></li>
-          <li class="no">사무실에서 쓸 복합기, 직원 단체복, 사무용품 구매 → <span class="res noT">자기소비용, 하도급거래 아님 (끝)</span></li>
-          <li class="no">우리 공장에서 쓸 생산기계·설비를 단순히 제작 의뢰 → <span class="res noT">생산설비 단순 위탁, 해당 아님 (끝)</span></li>
+          <li class="ok">우리가 판매하는 양극재에 들어가는 전구체·소재 제작 위탁 → <span class="res okT">본업 관련</span></li>
+          <li class="ok">고객사에 납품할 내화물 제품의 가공·임가공 위탁 → <span class="res okT">본업 관련</span></li>
+          <li class="no">사무실에서 쓸 복합기, 직원 단체복, 사무용품 구매 → <span class="res noT">자기소비용, 하도급거래 아님</span></li>
+          <li class="no">우리 공장에서 쓸 생산기계·설비를 단순히 제작 의뢰 → <span class="res noT">생산설비 단순 위탁, 해당 아님</span></li>
         </ul>
       </div>
     </div>
@@ -382,12 +456,127 @@
 
 </div>
 <script>
-  const boxes = document.querySelectorAll('.chk input');
-  const finalBox = document.getElementById('finalBox');
-  boxes.forEach(b => b.addEventListener('change', () => {
-    const allChecked = [...boxes].every(x => x.checked);
-    finalBox.classList.toggle('allchecked', allChecked);
-  }));
+  /* ===== 체크박스 동작 ===== */
+  function bindBoxes(){
+    const boxes = document.querySelectorAll('.chk input');
+    const finalBox = document.getElementById('finalBox');
+    boxes.forEach(b => b.addEventListener('change', () => {
+      const allChecked = [...boxes].every(x => x.checked);
+      if(finalBox) finalBox.classList.toggle('allchecked', allChecked);
+    }));
+  }
+  bindBoxes();
+
+  /* ===== 편집 / 저장 / 내보내기 ===== */
+  const STORAGE_KEY = 'hado_checklist_content_v1';
+  const sheet = document.querySelector('.sheet');
+  const body = document.body;
+  const btnEdit = document.getElementById('btnEdit');
+  const btnSave = document.getElementById('btnSave');
+  const btnCancel = document.getElementById('btnCancel');
+  const btnExport = document.getElementById('btnExport');
+  const btnReset = document.getElementById('btnReset');
+  const btnHelp = document.getElementById('btnHelp');
+  const saveStatus = document.getElementById('saveStatus');
+
+  // 최초 로드 시의 원본 보관 (복원용)
+  const ORIGINAL_HTML = sheet.innerHTML;
+  let backupHTML = '';
+
+  // 저장된 편집본 불러오기
+  function loadSaved(){
+    try{
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if(saved){ sheet.innerHTML = saved; bindBoxes(); flash('저장된 편집본 불러옴'); }
+    }catch(e){ /* 로컬저장 미지원 환경 */ }
+  }
+  loadSaved();
+
+  function flash(msg){
+    saveStatus.textContent = msg;
+    setTimeout(()=>{ if(saveStatus.textContent===msg) saveStatus.textContent=''; }, 2500);
+  }
+
+  // 편집 대상에 contenteditable 부여 (체크박스/입력요소 제외)
+  function setEditable(on){
+    // 텍스트가 들어있는 주요 블록을 편집 가능하게
+    const editableSel = 'h1,h2,p,td,th,li,.q,.sub,.intro,.note,.biznote,.bizh,.exh,.ch,.tch,.big,.small,.tag,.foot div,.arrow span,.bizgrid div';
+    sheet.querySelectorAll(editableSel).forEach(el=>{
+      if(on) el.setAttribute('contenteditable','true');
+      else el.removeAttribute('contenteditable');
+    });
+  }
+
+  btnEdit.addEventListener('click', ()=>{
+    backupHTML = sheet.innerHTML;       // 취소용 백업
+    body.classList.add('editing');
+    setEditable(true);
+    btnEdit.style.display='none';
+    btnSave.style.display='';
+    btnCancel.style.display='';
+    flash('편집 중…');
+  });
+
+  btnSave.addEventListener('click', ()=>{
+    setEditable(false);
+    body.classList.remove('editing');
+    try{
+      localStorage.setItem(STORAGE_KEY, sheet.innerHTML);
+      flash('✓ 저장됨 (이 브라우저)');
+    }catch(e){
+      flash('⚠ 이 환경에선 자동저장 불가 — 내보내기를 쓰세요');
+    }
+    btnEdit.style.display='';
+    btnSave.style.display='none';
+    btnCancel.style.display='none';
+    bindBoxes();
+  });
+
+  btnCancel.addEventListener('click', ()=>{
+    sheet.innerHTML = backupHTML;
+    setEditable(false);
+    body.classList.remove('editing');
+    btnEdit.style.display='';
+    btnSave.style.display='none';
+    btnCancel.style.display='none';
+    bindBoxes();
+    flash('편집 취소됨');
+  });
+
+  btnReset.addEventListener('click', ()=>{
+    if(!confirm('처음 원본 상태로 되돌릴까요? 저장된 편집 내용이 사라집니다.')) return;
+    sheet.innerHTML = ORIGINAL_HTML;
+    try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+    bindBoxes();
+    flash('원본으로 복원됨');
+  });
+
+  btnHelp.addEventListener('click', ()=>{
+    document.getElementById('helpModal').classList.add('show');
+  });
+
+  // ===== HTML 내보내기: 현재 내용을 담은 독립 실행형 파일 생성 =====
+  btnExport.addEventListener('click', ()=>{
+    // 편집모드면 먼저 해제
+    if(body.classList.contains('editing')){ setEditable(false); body.classList.remove('editing'); }
+    const clone = document.documentElement.cloneNode(true);
+    // 내보낸 파일에서도 편집기능이 그대로 동작하도록 현재 문서 전체를 복제
+    // 단, 임시 상태 클래스/모달 표시 제거
+    clone.querySelector('body')?.classList.remove('editing');
+    clone.querySelector('#helpModal')?.classList.remove('show');
+    // contenteditable 잔류 제거
+    clone.querySelectorAll('[contenteditable]').forEach(el=>el.removeAttribute('contenteditable'));
+    const html = '<!DOCTYPE html>\n' + clone.outerHTML;
+    const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const today = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = '하도급_체크리스트_'+today+'.html';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    flash('✓ HTML 파일 내려받음 — 같은 주소에 덮어쓰기 하세요');
+  });
 </script>
 </body>
 </html>
